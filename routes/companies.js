@@ -19,9 +19,13 @@ router.get('/', async (req, res, next) => {
 router.get('/:code', async (req, res, next) => {
     const code = req.params.code;
     const compResult = await db.query(
-        `SELECT * 
-         FROM companies 
-         WHERE code = $1`, [code]);
+        `SELECT c.code, c.name, c.description, i.name AS industry
+         FROM companies AS c
+         LEFT JOIN companies_industries AS ci
+         ON c.code = ci.company_code
+         LEFT JOIN industries AS i
+         ON ci.industry_code = i.code
+         WHERE c.code = $1`, [code]);
     const invResult = await db.query(
         `SELECT id 
          FROM invoices 
@@ -29,15 +33,15 @@ router.get('/:code', async (req, res, next) => {
     if (compResult.rows.length === 0) {
         throw new ExpressError('Company not found', 404)
     }
-    const company = compResult.rows[0];
-    const invoices = invResult.rows;
+    let company = compResult.rows[0];
+    let invoices = invResult.rows;
     company.invoices = invoices.map(inv => inv.id);
-    return res.json({"company": company});
+    return res.json({ "company": company });
 });
 
 router.post('/', async (req, res, next) => {
-    const {name, description } = req.body;
-    let code = slugify(name, {lower: true});
+    const { name, description } = req.body;
+    let code = slugify(name, { lower: true });
     const result = await db.query(
         `INSERT INTO companies (code, name, description) 
          VALUES ($1, $2, $3) 
